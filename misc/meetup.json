@@ -1,0 +1,191 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.4.613.9944",
+      "templateHash": "16225464290146053002"
+    }
+  },
+  "parameters": {
+    "prefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Prefix for services to make their names unique."
+      }
+    },
+    "appServicePlanSku": {
+      "type": "object",
+      "defaultValue": {
+        "name": "B1",
+        "tier": "Basic",
+        "size": "B1"
+      }
+    },
+    "aspnetEnvironment": {
+      "type": "string",
+      "defaultValue": "Test"
+    }
+  },
+  "functions": [],
+  "resources": [
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "meetup-ain",
+      "location": "[resourceGroup().location]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "SamplingPercentage": 100,
+        "DisableIpMasking": false,
+        "IngestionMode": "ApplicationInsights",
+        "publicNetworkAccessForIngestion": "Enabled",
+        "publicNetworkAccessForQuery": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2021-01-15",
+      "name": "meetup-asp",
+      "location": "[resourceGroup().location]",
+      "sku": "[parameters('appServicePlanSku')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2019-10-01",
+      "name": "api-services",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "aspnetEnvironment": {
+            "value": "[parameters('aspnetEnvironment')]"
+          },
+          "appInsightsInstrumentationKey": {
+            "value": "[reference(resourceId('Microsoft.Insights/components', 'meetup-ain')).InstrumentationKey]"
+          },
+          "appServicePlanId": {
+            "value": "[resourceId('Microsoft.Web/serverfarms', 'meetup-asp')]"
+          },
+          "services": {
+            "value": [
+              "Data",
+              "Admin"
+            ]
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.4.613.9944",
+              "templateHash": "8512561679523289060"
+            }
+          },
+          "parameters": {
+            "prefix": {
+              "type": "string"
+            },
+            "appServicePlanId": {
+              "type": "string"
+            },
+            "aspnetEnvironment": {
+              "type": "string"
+            },
+            "appInsightsInstrumentationKey": {
+              "type": "string"
+            },
+            "services": {
+              "type": "array",
+              "defaultValue": []
+            }
+          },
+          "functions": [],
+          "resources": [
+            {
+              "copy": {
+                "name": "apiServices",
+                "count": "[length(parameters('services'))]"
+              },
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2021-01-15",
+              "name": "[format('{0}-{1}-api', parameters('prefix'), toLower(parameters('services')[copyIndex()]))]",
+              "location": "[resourceGroup().location]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "serverFarmId": "[parameters('appServicePlanId')]",
+                "httpsOnly": true,
+                "clientAffinityEnabled": false,
+                "siteConfig": {
+                  "netFrameworkVersion": "v5.0",
+                  "http20Enabled": true,
+                  "alwaysOn": true,
+                  "webSocketsEnabled": false,
+                  "ftpsState": "Disabled",
+                  "appSettings": [
+                    {
+                      "name": "ASPNETCORE_ENVIRONMENT",
+                      "value": "[parameters('aspnetEnvironment')]"
+                    },
+                    {
+                      "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                      "value": "[parameters('appInsightsInstrumentationKey')]"
+                    },
+                    {
+                      "name": "WEBSITE_ENABLE_SYNC_UPDATE_SITE",
+                      "value": "true"
+                    },
+                    {
+                      "name": "WEBSITE_RUN_FROM_PACKAGE",
+                      "value": "1"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "services": {
+              "type": "array",
+              "copy": {
+                "count": "[length(range(0, length(parameters('services'))))]",
+                "input": {
+                  "name": "[parameters('services')[range(0, length(parameters('services')))[copyIndex()]]]",
+                  "host": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', format('{0}-{1}-api', parameters('prefix'), toLower(parameters('services')[range(0, length(parameters('services')))[copyIndex()]])))).defaultHostName)]",
+                  "identityId": "[reference(resourceId('Microsoft.Web/sites', format('{0}-{1}-api', parameters('prefix'), toLower(parameters('services')[range(0, length(parameters('services')))[copyIndex()]]))), '2021-01-15', 'full').identity.principalId]"
+                }
+              }
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', 'meetup-ain')]",
+        "[resourceId('Microsoft.Web/serverfarms', 'meetup-asp')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "appInsights": {
+      "type": "object",
+      "value": {
+        "instrumentationKey": "[reference(resourceId('Microsoft.Insights/components', 'meetup-ain')).InstrumentationKey]"
+      }
+    },
+    "apiServices": {
+      "type": "array",
+      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'api-services'), '2019-10-01').outputs.services.value]"
+    }
+  }
+}
