@@ -1,0 +1,19 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "prefix": {
+            "value": "gabo-ba-meetup-prod-"
+        },
+        "appServicePlanSku": {
+            "value": {
+                "name": "P1v2",
+                "tier": "PremiumV2",
+                "size": "P1v2"
+            }
+        },
+        "aspnetEnvironment": {
+            "value": "Production"
+        }
+    }
+}
